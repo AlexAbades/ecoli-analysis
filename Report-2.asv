@@ -57,8 +57,11 @@ Y = NE(:,'aac');
 % Delete from our data our Y
 NE(:,'aac') = [];
 
+R_ecoli = table2array(NE);
 
+R_ecoli = TransformDataset(R_ecoli);
 
+R_ecoli
 
 
 
