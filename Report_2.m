@@ -42,8 +42,8 @@ alm2 are the same measurments of ALOM after varying a bit.
 
 %}
 
-load Ecoli_values.mat;
- 
+load Ecoli_values.mat; 
+
 
 % Feature engineering: Binarize lip and chg attributes:
 
@@ -57,10 +57,13 @@ Y = NE(:,'aac');
 % Delete from our data our Y
 NE(:,'aac') = [];
 
+% Convert into an array
 R_ecoli = table2array(NE);
 
+% Binarize the data that has only two values
 R_ecoli = TransformDataset(R_ecoli);
 
+% Reconstruct our data with the target column at the end
 R_ecoli = [ R_ecoli table2array(Y)];
 
 
@@ -82,34 +85,43 @@ ax(7,4).XLabel.String='chg';
 ax(7,5).XLabel.String='alm1';
 ax(7,6).XLabel.String='alm2'; 
 ax(7,7).XLabel.String='aac'; 
-holf off
-%%
+
+%% Get correlation matrix
 corr_R_ecoli = corr(R_ecoli);
+
+% plot matrix plot to see the correlation between attributes
 figure()
 h = heatmap(corr_R_ecoli); 
 h.XDisplayLabels= {'mgc', 'gvh', 'lip', 'chg', 'alm1', 'alm2', 'aac'};
 h.YDisplayLabels = {'mgc', 'gvh', 'lip', 'chg', 'alm1', 'alm2', 'aac'};
 
+%% Feature tranformation 
+% Our data without standarization or any modification is X
+% Drop first column (identification protein) and the last (category column) 
+
+X(:,{'prot_name', 'cat', 'chg', 'lip'}) = [];
+
+%% Split our data into the attributes and target 
+[X, y] = selectTarget(X, 'aac'); 
+
 
 %% Regularization 
 
 % add ones to the matrix for the w0 or intercept values 
-X=[ones(size(X,1),1) R_ecoli];
+X=[ones(size(X,1),1) X];
 % Select the number of models we are gonna test 
-M= size(X,1);
+M= size(X,2);
 
 % Selecet the number of folds
 K = 10;
-% Split dataset 
+% Split dataset into 10 folds
 CV = cvpartition(size(X,1), 'Kfold', K);
-
 
 % Initializate values for lambda 
 lambda_tmp=10.^(-5:8);
 
 % Initializate some variables
-
-T=length(lambda_tmp);
+T = length(lambda_tmp);
 Error_train = nan(K,1); % vector to store the training error for each model 
 Error_test = nan(K,1); % vector to store the test error for each model
 
@@ -119,6 +131,7 @@ Error_test_rlr = nan(K,1);
 Error_train_nofeatures = nan(K,1);
 Error_test_nofeatures = nan(K,1);
 
+% weights 
 w = nan(M,T,K);
 lambda_opt = nan(K,1);
 w_rlr = nan(M,K);
@@ -152,7 +165,10 @@ for k = 1:K
         sigma2 = std(X_train2(:,2:end));
         X_train2(:,2:end) = (X_train2(:,2:end) - mu2) ./ sigma2;
         X_test2(:,2:end) = (X_test2(:,2:end) - mu2) ./ sigma2;
-        
+        %%%%%%
+        % Should we also standarize the binary attributes??
+        %%%%%%
+    
         Xty2 = X_train2' * y_train2;
         XtX2 = X_train2' * X_train2;
         for t=1:length(lambda_tmp)   
@@ -166,7 +182,67 @@ for k = 1:K
             Error_test2(t,kk) = sum((y_test2-X_test2*w(:,t,kk)).^2);
         end
     end    
+    
+    % Select optimal value of lambda
+    [val,ind_opt]=min(sum(Error_test2,2)/sum(CV2.TestSize));
+    lambda_opt(k)=lambda_tmp(ind_opt);    
+    
+    
 
+    % Display result for last cross-validation fold (remove if statement to
+    % show all folds)
+    if k == K
+        mfig(sprintf('(%d) Regularized Solution',k));    
+        subplot(1,2,1); % Plot error criterion
+        semilogx(lambda_tmp, mean(w(2:end,:,:),3),'.-');
+        % For a more tidy plot, we omit the attribute names, but you can
+        % inspect them using:
+        %legend(attributeNames(2:end), 'location', 'best');
+        xlabel('\lambda');
+        ylabel('Coefficient Values');
+        title('Values of w');
+        subplot(1,2,2); % Plot error        
+        loglog(lambda_tmp,[sum(Error_train2,2)/sum(CV2.TrainSize) sum(Error_test2,2)/sum(CV2.TestSize)],'.-');   
+        legend({'Training Error as function of lambda','Test Error as function of lambda'},'Location','SouthEast');
+        title(['Optimal value of lambda: 1e' num2str(log10(lambda_opt(k)))]);
+        xlabel('\lambda');           
+        drawnow;    
+    end
+    
+    % Standardize datasets in outer fold, and save the mean and standard
+    % deviations since they're part of the model (they would be needed for
+    % making new predictions)
+    mu(k,  :) = mean(X_train(:,2:end));
+    sigma(k, :) = std(X_train(:,2:end));
+
+    X_train_std = X_train;
+    X_test_std = X_test;
+    X_train_std(:,2:end) = (X_train(:,2:end) - mu(k , :)) ./ sigma(k, :);
+    X_test_std(:,2:end) = (X_test(:,2:end) - mu(k, :)) ./ sigma(k, :);
+        
+    % Estimate w for the optimal value of lambda
+    Xty=(X_train_std'*y_train);
+    XtX=X_train_std'*X_train_std;
+    
+    regularization = lambda_opt(k) * eye(M);
+    regularization(1,1) = 0; 
+    w_rlr(:,k) = (XtX+regularization)\Xty;
+    
+    % evaluate training and test error performance for optimal selected value of
+    % lambda
+    Error_train_rlr(k) = sum((y_train-X_train_std*w_rlr(:,k)).^2);
+    Error_test_rlr(k) = sum((y_test-X_test_std*w_rlr(:,k)).^2);
+    
+    % Compute squared error without regularization
+    w_noreg(:,k)=XtX\Xty;
+    Error_train(k) = sum((y_train-X_train_std*w_noreg(:,k)).^2);
+    Error_test(k) = sum((y_test-X_test_std*w_noreg(:,k)).^2);
+    
+    % Compute squared error without using the input data at all
+    Error_train_nofeatures(k) = sum((y_train-mean(y_train)).^2);
+    Error_test_nofeatures(k) = sum((y_test-mean(y_train)).^2);
+     
+end
 
 
 

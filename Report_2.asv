@@ -100,7 +100,8 @@ M= size(X,1);
 
 % Selecet the number of folds
 K = 10;
-% Split dataset 
+
+% Split dataset into 10 folds
 CV = cvpartition(size(X,1), 'Kfold', K);
 
 
