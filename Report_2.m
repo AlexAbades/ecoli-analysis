@@ -40,7 +40,7 @@ alm2 are the same measurments of ALOM after varying a bit.
   alm2: score of ALOM program after excluding putative cleavable signal
 	   regions from the sequence.
 
-%}
+
 
 load Ecoli_values.mat; 
 
@@ -94,16 +94,21 @@ figure()
 h = heatmap(corr_R_ecoli); 
 h.XDisplayLabels= {'mgc', 'gvh', 'lip', 'chg', 'alm1', 'alm2', 'aac'};
 h.YDisplayLabels = {'mgc', 'gvh', 'lip', 'chg', 'alm1', 'alm2', 'aac'};
-
+%}
 %% Feature tranformation 
 % Our data without standarization or any modification is X
 % Drop first column (identification protein) and the last (category column) 
+% Get rid also of the binary data, it makes the matrix singular when it try
+% to normalize it
+clear all; clc;
+load Ecoli_values.mat; 
 
-X(:,{'prot_name', 'cat', 'chg', 'lip'}) = [];
+X(:,{'prot_name', 'cat'}) = [];
+
 
 %% Split our data into the attributes and target 
-[X, y] = selectTarget(X, 'aac'); 
-
+[X, y, names] = selectTarget(X, 'aac', 0); 
+attributeNames = [{'Offset'} names];
 
 %% Regularization 
 
@@ -139,7 +144,6 @@ mu = nan(K, M-1);
 sigma = nan(K, M-1);
 w_noreg = nan(M,K);
 
-
 for k = 1:K
     fprintf('Crossvalidation fold %d/%d\n', k, K);
     
@@ -161,13 +165,14 @@ for k = 1:K
         
         % Standardize the training and test set based on training set in
         % the inner fold
-        mu2 = mean(X_train2(:,2:end));
-        sigma2 = std(X_train2(:,2:end));
-        X_train2(:,2:end) = (X_train2(:,2:end) - mu2) ./ sigma2;
-        X_test2(:,2:end) = (X_test2(:,2:end) - mu2) ./ sigma2;
-        %%%%%%
-        % Should we also standarize the binary attributes??
-        %%%%%%
+        
+        % Not standarize the binary attributes
+        
+        mu2 = mean(X_train2(:,2:5));
+        sigma2 = std(X_train2(:,2:5));
+        X_train2(:,2:5) = (X_train2(:,2:5) - mu2) ./ sigma2+10^-8;
+        X_test2(:,2:5) = (X_test2(:,2:5) - mu2) ./ sigma2+10^-8;
+      
     
         Xty2 = X_train2' * y_train2;
         XtX2 = X_train2' * X_train2;
@@ -197,7 +202,7 @@ for k = 1:K
         semilogx(lambda_tmp, mean(w(2:end,:,:),3),'.-');
         % For a more tidy plot, we omit the attribute names, but you can
         % inspect them using:
-        %legend(attributeNames(2:end), 'location', 'best');
+        legend(attributeNames(2:end), 'location', 'best');
         xlabel('\lambda');
         ylabel('Coefficient Values');
         title('Values of w');
@@ -244,16 +249,32 @@ for k = 1:K
      
 end
 
+%% Display results
+fprintf('\n');
+fprintf('Linear regression without feature selection:\n');
+fprintf('- Training error: %8.2f\n', sum(Error_train)/sum(CV.TrainSize));
+fprintf('- Test error:     %8.2f\n', sum(Error_test)/sum(CV.TestSize));
+fprintf('- R^2 train:     %8.2f\n', (sum(Error_train_nofeatures)-sum(Error_train))/sum(Error_train_nofeatures));
+fprintf('- R^2 test:     %8.2f\n', (sum(Error_test_nofeatures)-sum(Error_test))/sum(Error_test_nofeatures));
+fprintf('Regularized linear regression:\n');
+fprintf('- Training error: %8.2f\n', sum(Error_train_rlr)/sum(CV.TrainSize));
+fprintf('- Test error:     %8.2f\n', sum(Error_test_rlr)/sum(CV.TestSize));
+fprintf('- R^2 train:     %8.2f\n', (sum(Error_train_nofeatures)-sum(Error_train_rlr))/sum(Error_train_nofeatures));
+fprintf('- R^2 test:     %8.2f\n', (sum(Error_test_nofeatures)-sum(Error_test_rlr))/sum(Error_test_nofeatures));
+
+fprintf('\n');
+fprintf('Weight in last fold: \n');
+for m = 1:M
+    disp( sprintf(['\t', attributeNames{m},':\t ', num2str(w_rlr(m,end))]))
+end
+%disp(w_rlr(:,end))
 
 
 
 
 
 
-
-
-
-
+%%
 
 
 
