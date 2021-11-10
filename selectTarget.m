@@ -15,7 +15,7 @@ else
     X(:,{'chg'}) = [];
 end
 
-names = X.Properties.VariableNames
+names = X.Properties.VariableNames;
 % Convert tables into matrices 
 y = table2array(y);
 X = table2array(X);
