@@ -12,7 +12,9 @@ if c == 1
     X(:,{'lip', 'chg'}) = [];
     X = [X X_temp];
 else 
-    X(:,{'chg'}) = [];
+    X_temp = X(:,{'lip'});
+    X(:,{'lip', 'chg'}) = [];
+    X = [X X_temp];
 end
 
 names = X.Properties.VariableNames;

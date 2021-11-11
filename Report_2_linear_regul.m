@@ -117,32 +117,68 @@ X=[ones(size(X,1),1) X];
 % Select the number of models we are gonna test 
 M= size(X,2);
 
-% Selecet the number of folds
-K = 10;
+% Selecet the number of folds outer loop 
+K = 2;
+% Selecet the number of folds inner loop (For probes purposes we have to
+% set it to low values)
+KK = 2;
 % Split dataset into 10 folds
 CV = cvpartition(size(X,1), 'Kfold', K);
 
 % Initializate values for lambda 
 lambda_tmp=10.^(-5:8);
 
-% Initializate some variables
+% Initializate VARIABLES LINEAR REGRESSION
 T = length(lambda_tmp);
+
+% Error of the outer fold 
 Error_train = nan(K,1); % vector to store the training error for each model 
 Error_test = nan(K,1); % vector to store the test error for each model
 
+% Error for the regularized linear regression 
 Error_train_rlr = nan(K,1);
 Error_test_rlr = nan(K,1);
 
+% Errors for the nonfeature model 
 Error_train_nofeatures = nan(K,1);
 Error_test_nofeatures = nan(K,1);
 
-% weights 
-w = nan(M,T,K);
+% Error for the inner loop 
+Error_train2 = nan(T,KK);
+Error_test2 = nan(T,KK);
+
+% Initialize labda for linear regression
 lambda_opt = nan(K,1);
+% Initialize weights for each labda
+w = nan(M,T,K);
+% Initialize weights for optimal value of lambda
 w_rlr = nan(M,K);
-mu = nan(K, M-1);
-sigma = nan(K, M-1);
+% Initialize weights for non regularized 
 w_noreg = nan(M,K);
+
+% Initialize variables ANN
+% Number of re-trains of neural network
+NTrain = 1; 
+% Error of the outer loop 
+Error_train_ann = nan(K,1);
+Error_test_ann = nan(K,1);
+
+% Error of the inner loop 
+Error_train_ann2 = nan(K,1);
+Error_test_ann2 = nan(K,1);
+% Number of neurons of the hidden layer 
+h_tmp = [10 50 100 150]; 
+
+% Initialize our optimal neural networks 
+h_opt = nan(K,1);
+h_opt2 = nan(KK,1);
+bestnet=cell(K,1);
+
+% Initialize mean ans standard deviation for each train set
+mu = nan(K, M-2); % Minus 2 to don't get the offset and the binary
+sigma = nan(K, M-2);
+
+
 
 for k = 1:K
     fprintf('Crossvalidation fold %d/%d\n', k, K);
@@ -155,19 +191,18 @@ for k = 1:K
     
     
     % Use 10-fold crossvalidation to estimate optimal value of lambda    
-    KK = 10;
     CV2 = cvpartition(size(X_train,1), 'Kfold', KK);
     for kk=1:KK
+        fprintf('Inner Folder: %d/%d\n', kk, KK);
         X_train2 = X_train(CV2.training(kk), :);
         y_train2 = y_train(CV2.training(kk));
         X_test2 = X_train(CV2.test(kk), :);
         y_test2 = y_train(CV2.test(kk));
         
         % Standardize the training and test set based on training set in
-        % the inner fold
-        
-        % Not standarize the binary attributes
-        
+        % the inner fold        
+        % Not standarize the binary attributes, set value really low so it
+        % doesn't compute NaN values        
         mu2 = mean(X_train2(:,2:5));
         sigma2 = std(X_train2(:,2:5));
         X_train2(:,2:5) = (X_train2(:,2:5) - mu2) ./ sigma2+10^-8;
@@ -186,11 +221,35 @@ for k = 1:K
             Error_train2(t,kk) = sum((y_train2-X_train2*w(:,t,kk)).^2);
             Error_test2(t,kk) = sum((y_test2-X_test2*w(:,t,kk)).^2);
         end
-    end    
+     
+    
+        % Calculate the Artificial Neural Network
+        MSEBest = inf;
+        for t = 1:length(h_tmp)
+            fprintf('ANN: %d/%d\n', t, length(h_tmp));
+            netwrk = nr_main(X_train2(:,2:end), y_train2, X_test2(:,2:end), y_test2, h_tmp(t));
+            if netwrk.mse_train(end)<MSEBest, bestnet{kk} = netwrk; MSEBest=netwrk.mse_train(end); MSEBest=netwrk.mse_train(end); h_opt2(kk) = h_tmp(t); end
+        end
+        
+        % Predict model on test and training data
+        y_train_est = bestnet{kk}.t_pred_train;
+        y_test_est = bestnet{kk}.t_pred_test;
+        
+        % Compute least squares error
+        Error_train_ann2(kk) = sum((y_train2-y_train_est).^2);
+        Error_test_ann2(kk) = sum((y_test2-y_test_est).^2);
+        
+    end
+    
+    
+    % Select optimal value of lambda substituted ~ for "val"
+    [~,ind_opt]=min(sum(Error_test2,2)/sum(CV2.TestSize));
+    lambda_opt(k)=lambda_tmp(ind_opt);    
     
     % Select optimal value of lambda
-    [val,ind_opt]=min(sum(Error_test2,2)/sum(CV2.TestSize));
-    lambda_opt(k)=lambda_tmp(ind_opt);    
+    [~,ind_opt]=min(sum(Error_test_ann2,2)/sum(CV2.TestSize));
+    h_opt(k)=h_opt2(ind_opt);
+    ANN{k} = bestnet{ind_opt};
     
     
 
@@ -217,14 +276,18 @@ for k = 1:K
     % Standardize datasets in outer fold, and save the mean and standard
     % deviations since they're part of the model (they would be needed for
     % making new predictions)
-    mu(k,  :) = mean(X_train(:,2:end));
-    sigma(k, :) = std(X_train(:,2:end));
-
+    %mu(k,  :) = [mean(X_train(:,2:5)) 0];
+    %sigma(k, :) = [std(X_train(:,2:5)) 1];
+    
+    mu(k,  :) = mean(X_train(:,2:5));
+    sigma(k, :) = std(X_train(:,2:5));
+    
     X_train_std = X_train;
     X_test_std = X_test;
-    X_train_std(:,2:end) = (X_train(:,2:end) - mu(k , :)) ./ sigma(k, :);
-    X_test_std(:,2:end) = (X_test(:,2:end) - mu(k, :)) ./ sigma(k, :);
-        
+    X_train_std(:,2:5) = (X_train(:,2:5) - mu(k , :)) ./ sigma(k, :)+10^-8;
+    X_test_std(:,2:5) = (X_test(:,2:5) - mu(k, :)) ./ sigma(k, :)+10^-8;
+    
+
     % Estimate w for the optimal value of lambda
     Xty=(X_train_std'*y_train);
     XtX=X_train_std'*X_train_std;
@@ -246,10 +309,40 @@ for k = 1:K
     % Compute squared error without using the input data at all
     Error_train_nofeatures(k) = sum((y_train-mean(y_train)).^2);
     Error_test_nofeatures(k) = sum((y_test-mean(y_train)).^2);
-     
+    
+    % Predict model on test and training data
+    y_train_est = nr_eval(ANN{k},X_train(:,2:end));
+    y_test_est = nr_eval(ANN{k},X_test(:,2:end));
+    
+    % Compute least squares error
+    Error_train_ann(k) = sum((y_train-y_train_est).^2);
+    Error_test_ann(k) = sum((y_test-y_test_est).^2);
 end
 
-%% Display results
+%% Display graphically the Generalized error
+% Select an optimal lambda 
+lambda_opt(k)=lambda_tmp(ind_opt);
+
+% Select the minimum values of all the computed errors 
+[MinErrorNoFeatures,idx_MinErrorNoFeatures]= min(Error_test_nofeatures);
+[MinErrorRLR, idx_MinErrorRLR]= min(Error_test_rlr);
+[MinErrorANN, idx_MinErrorANN]= min(Error_test_ann);
+
+lambda_sel=lambda_opt(idx_MinErrorRLR);
+h_sel = h_opt(idx_MinErrorANN);
+% Include a figure of the estimated generalization error as a function of ? in the
+% report and briefly discuss the result.
+
+mfig(sprintf('Regularized Solution: %8.2f',idx_MinErrorRLR));
+loglog(lambda_tmp,sum(Error_test2,2)/sum(CV2.TestSize),'.-');
+legend({'Test Error as function of lambda'},'Location','SouthEast');
+title(['Optimal value of lambda: 1e' num2str(log10(lambda_opt(idx_MinErrorRLR)))]);
+xlabel('\lambda');
+ylabel('Generalization Error');
+grid on;
+drawnow;
+
+%% Display results Regularized Linear Regression
 fprintf('\n');
 fprintf('Linear regression without feature selection:\n');
 fprintf('- Training error: %8.2f\n', sum(Error_train)/sum(CV.TrainSize));
@@ -269,12 +362,33 @@ for m = 1:M
 end
 %disp(w_rlr(:,end))
 
+%% Display results ANN
+fprintf('\n');
+fprintf('Neural network regression without feature selection:\n');
+fprintf('- Training error: %8.2f\n', sum(Error_train)/sum(CV.TrainSize));
+fprintf('- Test error:     %8.2f\n', sum(Error_test)/sum(CV.TestSize));
+fprintf('- R^2 train:     %8.2f\n', (sum(Error_train_nofeatures)-sum(Error_train))/sum(Error_train_nofeatures));
+fprintf('- R^2 test:     %8.2f\n', (sum(Error_test_nofeatures)-sum(Error_test))/sum(Error_test_nofeatures));
+
+% WTF Are those errors ?? It actually gives something 
+ANN_Et = Error_test_ann./CV.TestSize
+RLR_Et = Error_test_rlr./CV.TestSize
+Base_Et = Error_test_nofeatures./CV.TestSize
 
 
+%% Display Neural Network
+% Display the trained network, Why 
+mfig('Trained Network');
+k=1; % cross-validation fold
+displayNetworkRegression(bestnet{k});
 
+% Display how network predicts (only for when there are two attributes)
+if size(X_train,2)==2 % Works only for problems with two attributes
+	mfig('Decision Boundary');
+	displayDecisionFunctionNetworkRegression(X_train(:,2:end), y_train, X_test(:,2:end), y_test, bestnet{k});
+    hold off
+end
 
-
-%%
 
 
 

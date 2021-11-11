@@ -23,6 +23,7 @@ X = TransformDataset(X);
 
 % Trnsform the categories into numbers 
 classLabels = table2cell(y);
+
 % Fiter the uniques values
 [classNames, ia, ic] = unique(classLabels);
 
@@ -30,21 +31,17 @@ classLabels = table2cell(y);
 % Substract 1 to the vector so it's starts from 0.
 y = y-1;
 
-k = ceil(0.6*size(X,1));
-CV = cvpartition(size(X,1),'Holdout', 0.3); % Specify a partition on 30%
-idx = CV.test;
-
-% Separate to training and test data
-X_train = X(~idx,:);
-y_train = y(~idx,:);
-X_test = X(idx,:);
-y_test = y(idx,:);
+% K-fold cross validation 
+K = 10;
+CV = cvpartition(size(X,1),'Kfold', K);
 
 N_test = size(X_test,1);
 N_train = size(X_train,1);
 
 % Parameters for neural network classifier
 NHiddenUnits = 20;  % Number of hidden units
+
+
 
 %% Fit multiclass neural network to training set
 net = nc_main(X_train, y_train+1, X_test, y_test+1, NHiddenUnits);
