@@ -236,7 +236,7 @@ for k = 1:K
     % evaluate training and test error performance for optimal selected value of
     % lambda
     Error_train_rlr(k) = sum((y_train-X_train_std*w_rlr(:,k)).^2);
-    Error_test_rlr(k) = sum((y_test-X_test_std*w_rlr(:,k)).^2)
+    Error_test_rlr(k) = sum((y_test-X_test_std*w_rlr(:,k)).^2);
     
     % Compute squared error without regularization
     w_noreg(:,k)=XtX\Xty;

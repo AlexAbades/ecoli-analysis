@@ -15,7 +15,7 @@ K = 10;
 CV = cvpartition(size(X,1),'Kfold', K);
 
 % Parameters for neural network classifier
-NHiddenUnits = 20;  % Number of hidden units
+NHiddenUnits = 2;  % Number of hidden units
 NTrain = 5; % Number of re-trains of neural network
 
 % Variable for regression error
@@ -47,7 +47,7 @@ for k = 1:K % For each crossvalidation fold
     
     % Compute least squares error
     Error_train(k) = sum((y_train-y_train_est).^2);
-    Error_test(k) = sum((y_test-y_test_est).^2)
+    Error_test(k) = sum((y_test-y_test_est).^2);
         
     % Compute least squares error when predicting output to be mean of
     % training data
