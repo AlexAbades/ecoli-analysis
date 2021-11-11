@@ -9,6 +9,11 @@ X(:,{'prot_name'}) = [];
 % Get the attribtes names
 attributeNames = [{'Offset'} X.Properties.VariableNames];
 
+idx1 = find(strcmp('imL', X.cat))';
+idx2 = find(strcmp('imS', X.cat))';
+idx = [idx1 idx2];
+X([idx],:) = [];
+
 % Split our data into the attributes and target 
 % Select our target 
 y = X(:,'cat'); 
@@ -49,12 +54,15 @@ C = max(y+1);
 
 %% Fit regularized multinomial regression model
 % Standardize based on training set. Leave out the binary attributes
+%{ 
 mu = mean(X_train,1);
 sigma = std(X_train,1);
 X_train = bsxfun(@times, X_train - mu, 1./ sigma);
 X_test = bsxfun(@times, X_test - mu, 1./ sigma);
 
-X_train = 
+X_train = TransformDataset(X_train);
+X_test= TransformDataset(X_test);
+%}
 
 % Define the softmax loss for multinomial logistic regression
 funObj = @(W)SoftmaxLoss2(W, ...
@@ -62,7 +70,7 @@ funObj = @(W)SoftmaxLoss2(W, ...
             y_train+1,C);
 
 % Setup the reguliarzation parameter
-regularization_strength = 1e3; 
+regularization_strength = 13; 
 % Try a  high regularization strength, e.g. 1e3, especially for synth2,
 % synth3 and synth 4, and investigate the estimated distributions
 
