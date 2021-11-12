@@ -35,8 +35,8 @@ y = y-1;
 K = 10;
 CV = cvpartition(size(X,1),'Kfold', K);
 
-N_test = size(X_test,1);
-N_train = size(X_train,1);
+N_test = size(X,1);
+N_train = size(X,1);
 
 % Parameters for neural network classifier
 NHiddenUnits = 20;  % Number of hidden units

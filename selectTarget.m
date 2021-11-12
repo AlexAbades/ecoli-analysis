@@ -11,10 +11,14 @@ if c == 1
     X_temp = X(:,{'lip', 'chg'});
     X(:,{'lip', 'chg'}) = [];
     X = [X X_temp];
-else 
+elseif c == 0 
     X_temp = X(:,{'lip'});
     X(:,{'lip', 'chg'}) = [];
     X = [X X_temp];
+else
+    X(:,{'lip', 'chg'}) = [];
+
+    
 end
 
 names = X.Properties.VariableNames;

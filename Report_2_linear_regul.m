@@ -107,7 +107,7 @@ X(:,{'prot_name', 'cat'}) = [];
 
 
 %% Split our data into the attributes and target 
-[X, y, names] = selectTarget(X, 'aac', 0); 
+[X, y, names] = selectTarget(X, 'aac', 2); 
 attributeNames = [{'Offset'} names];
 
 %% Regularization 

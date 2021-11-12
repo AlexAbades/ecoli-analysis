@@ -48,7 +48,7 @@ y_test = y(idx,:);
 N_test = size(X_test,1);
 N_train = size(X_train,1);
 
-% M number of attributes
+% M number of attributes C number of classes
 M = size(X_train,2);
 C = max(y+1);
 
