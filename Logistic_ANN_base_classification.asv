@@ -75,12 +75,9 @@ for i=2:K
     Test = [Test array2table(CV.test(i), 'VariableNames',{a})];
 end
 
-Trainingmat = table2array(Training);
-Testmat = table2array(Test);
+
 save('C:\Users\G531\Documents\1 - Universities\3 - DTU\002 - Course\02 - ML and Data mining\04 - IDE Extras\!origin\02450Toolbox_Python\02450Toolbox_Python\Data\Ecoli_TrainTestsplit.mat',...
-    'CV','Training','Test', 'Trainingmat', 'Testmat');
-save('C:\Users\G531\Documents\8 - Github\ecoli-analysis\Ecoli_TrainTestsplit.mat',...
-    'CV','Training','Test', 'Trainingmat', 'Testmat');
+    'CV','Training','Test');
 
 
 %%
