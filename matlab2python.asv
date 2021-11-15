@@ -10,22 +10,20 @@ clearvars -except X
 % Drop the useless attributes (proteins names).
 X(:,{'prot_name'}) = [];
 
-% Delete the prdictible categories imS and imL because they have only two
-% instances 
-X_del = X;
-classLabels_del = table2array(X_del(:,'cat'));
+% Delete the 
+classLabels = table2array(X(:,'cat'));
 % Fiter the uniques values
-[classNames_del, ~, ~] = unique(classLabels_del);
-[~,y1_del] = ismember(classLabels_del, classNames_del);
-y1_del = y1_del-1;
-X_del(:,{'cat'}) = [];
+[classNames, ~, ~] = unique(classLabels);
+[~,y1] = ismember(classLabels, classNames);
+y1 = y1-1;
+X(:,{'cat'}) = [];
 
-X_del = [X_del array2table(y1,'VariableNames',{'cat'})];
+X = [X array2table(y1,'VariableNames',{'cat'})];
 idxs = X.cat == 2 ;
 idxs1 = X.cat == 3;
 idxs = idxs + idxs1; 
 
-X_del(idxs == 1, :) = [];
+X(idxs == 1, :) = [];
 
 
 
