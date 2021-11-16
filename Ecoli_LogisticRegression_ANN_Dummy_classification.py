@@ -25,7 +25,7 @@ from scipy import stats
 from sklearn.dummy import DummyClassifier
 
 # Load Matlab data file and extract variables of interest
-mat_data = loadmat('../Data/Ecoli_python.mat')
+mat_data = loadmat(r'C:\Users\G531\Documents\8 - Github\ecoli-analysis/Ecoli_python.mat')
 
 
 
@@ -60,16 +60,16 @@ C = len(set(y)) # Number of categories we have to predict
 #               PARAMETERS FOR CORSS VALIDATION AND MODEL
 
 # Number of outer fold folders.
-K = 2
+K = 5
 # # Number of inner fold folders.
-KK = 2
+KK = 5
 
 # Multinomial parameters 
 # Check the output 10**-n
 # Minimum Value 
-min_lambda = -2
+min_lambda = -3
 # Maximum Value 
-max_lambda = 2
+max_lambda = 5
 
 # Net parameters 
 # Parameters for neural network classifier
@@ -337,6 +337,17 @@ for train_index_outer, test_index_outer in skf_outer.split(X, y):
     
     
 # =============================================================================
+#     # DISPLAY DE LEARNING CURVES 
+# =============================================================================
+     # Display the learning curve for the best net in the current fold
+    h, = summaries_axes[0].plot(learning_curve, color=color_list[k])
+    h.set_label('CV fold {0}'.format(k+1))
+    summaries_axes[0].set_xlabel('Iterations')
+    summaries_axes[0].set_xlim((0, max_iter))
+    summaries_axes[0].set_ylabel('Loss')
+    summaries_axes[0].set_title('Learning curves')
+    
+# =============================================================================
 #     # DUMMY MODEL
 # =============================================================================
     # calculate the the probability of being in a class by the most freq 
@@ -413,6 +424,46 @@ plt.title('Parameter vector L2 norm')
 plt.grid()
 plt.show()    
 
+# =============================================================================
+# 
+# #       Train the model with specific lambda = 100 
+# 
+# =============================================================================
+
+k = 0 
+
+for train_index_outer, test_index_outer in skf_outer.split(X, y):
+    print('\nOuter fold: ',k, '/', K, '\n')
+    # Extract training and test set for current CV fold
+    X_train_outer = X[train_index_outer]
+    y_train_outer = y[train_index_outer]
+    X_test_outer = X[test_index_outer]
+    y_test_outer = y[test_index_outer]
+
+
+
+    # Build the model for the optimal lambda
+    # Train Optimal model with lambda calculated in the inner loop and compute the generalised error
+    mdl_outer = LogisticRegression(multi_class='multinomial',
+                                      penalty='l2', random_state=(1),
+                                      C=1/100, 
+                                      max_iter= 5000)
+
+    # Fit the model 
+    mdl_outer.fit(X_train_outer,y_train_outer)
+    # Estimate the classes 
+    y_train_est_outer = mdl_outer.predict(X_train_outer)
+    y_test_est_outer = mdl_outer.predict(X_test_outer)
+    # Store the predictions 
+    prediction_outer.append(y_test_est_outer)
+    y_test_outer_store.append(y_test_outer)
+    # Estimate the error of the model for each lambda and inner fold 
+    train_error_rate_outer[k] = np.sum(y_train_est_outer!=y_train_outer) / len(y_train_outer)
+    test_error_rate_outer[k] = np.sum(y_test_est_outer!=y_test_outer) / len(y_test_outer)    
+    # Get attributes
+    w_est_outer[k,:] = mdl_outer.coef_[0] 
+    coefficient_norm_outer[k] = np.sqrt(np.sum(w_est_outer**2))
+    k +=1 
 
 
 
